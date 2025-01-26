@@ -194,11 +194,16 @@ def parse_date(raw_date: str, now_fn=lambda: datetime.now()) -> date:
 
 
 class CronDB(dict):
+    # TODO: make it resiliant
+    # https://danluu.com/deconstruct-files/
+    # TODO: do I check for ZFS?
+
     def __init__(self, db_file_name: str):
         self.db_file_name = db_file_name
         
     def load(self) -> "CronDB": 
         # TODO: handle file not existing
+        # TODO: handle trailing comma
         with open(self.db_file_name, mode="r") as db_file:
             self.update(json.load(db_file))
         return self
