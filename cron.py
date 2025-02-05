@@ -59,7 +59,8 @@ def _main(db_file_name="crondb.json"):
 
             if reccuring.next_date < next_date_from_last_completion:
                 crondb.write(reccuring.name, next_date_from_last_completion)
-                print(f"{reccuring.name}: perofrmed interaval rollover - next execution of  is {next_date_from_last_completion} instead of {reccuring.next_date}")
+                diff_days = (next_date_from_last_completion - reccuring.next_date).days
+                print(f"{reccuring.name}: performed interaval rollover - next execution is {next_date_from_last_completion} instead of {reccuring.next_date} [+{diff_days} days]")
 
 
 class Task(_Task):
