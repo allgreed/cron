@@ -77,6 +77,10 @@ class Task(_Task):
         set_bool_UDA_if_set("urgent", urgent)
         set_bool_UDA_if_set("important", important)
 
+        # TODO: make this regexp based
+        if "+" in description:
+            raise ValueError("Tag detected in task description")
+
         super().__init__(None, description=description, **kwargs)
 
         tags = self["tags"]
