@@ -4,7 +4,7 @@ from typing import Optional, Sequence, Union
 from datetime import datetime, timedelta, date
 from dataclasses import dataclass
 from dateutil.relativedelta import relativedelta
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 import typer
 from tasklib import TaskWarrior, Task as _Task
@@ -244,14 +244,17 @@ def restore_reccurings(crondb: CronDB) -> Sequence[Reccuring]:
     if additional := set(crondb).difference(set(classMapping)):
         print(f"warrning: {crondb.db_file_name} has additional entries {additional} that do not have a matching Reccuring definition")
 
-    def _reconstruct_task(args):
+    # TODO: this should be serialization
+    def _reconstruct(args) -> Optional[Reccuring]:
         task_name, raw_next_date = args
         next_date = datetime.strptime(raw_next_date, "%Y-%m-%d").date()
-        return classMapping[task_name](next_date)
-    return  sorted(map(_reconstruct_task, crondb.items()), key=lambda t: t.run_after)
+        
+        with suppress(KeyError):
+            return classMapping[task_name](next_date)
+    reonstructed: Sequence[Reccuring] = (_reconstruct(i) for i in crondb.items() if _reconstruct(i))
     # !!! THIS IS WRONG, HOWVER IT's ALSO DONE !!!
     # TODO: implement actual dependency chain resolution, not just this
-
+    return  sorted(reonstructed, key=lambda t: t.run_after)
 
 def leaf_subclasses(cls):
     return filter(lambda c: not c.__subclasses__(), cls.get_subclasses())
