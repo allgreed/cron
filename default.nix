@@ -1,9 +1,10 @@
 let
-  pkgs = import (builtins.fetchGit {
+  pkgs = import (builtins.fetchTree {
+    type = "git";
     url = "https://github.com/nixos/nixpkgs/";
-    ref = "refs/heads/nixos-unstable";
-    rev = "76612b17c0ce71689921ca12d9ffdc9c23ce40b2"; # 13-11-2024
-    # obtain via `git ls-remote https://github.com/nixos/nixpkgs nixos-unstable`
+    rev = "d74a2335ac9c133d6bbec9fc98d91a77f1604c1f"; # 17-02-2025
+    narHash = "sha256-zON2GNBkzsIyALlOCFiEBcIjI4w38GYOb+P+R4S8Jsw=";
+    # obtain via `nix-prefetch-git https://github.com/nixos/nixpkgs/ --rev $(git ls-remote https://github.com/nixos/nixpkgs nixos-unstable)`
   }) { config = {}; };
   pythonPkgs = python-packages: with python-packages; [
     tasklib
@@ -18,7 +19,7 @@ let
   myPython = pythonCore.withPackages pythonPkgs;
 in
 pkgs.mkShell {
-  buildInputs =
+  packages =
   with pkgs;
   [
     git
