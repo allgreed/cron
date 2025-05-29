@@ -1,10 +1,10 @@
 import json
 import subprocess
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence, Union, Mapping
 from datetime import datetime, timedelta, date
 from dataclasses import dataclass
 from dateutil.relativedelta import relativedelta
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 
 import typer
 from tasklib import TaskWarrior, Task as _Task
@@ -91,7 +91,6 @@ class Task(_Task):
             tags.add("home")
 
 
-# TODO: make it a proper interface
 @dataclass
 class Reccuring:
     next_date: date
@@ -116,6 +115,21 @@ class Reccuring:
 
     def is_overdue(self, today):
         return self.next_date < today
+
+    def to_dict(self) -> Mapping:
+        return { "cls_name": self.name, "next_date": str(self.next_date) }
+
+    # actually this be a co?contravariant of Recurring
+    @staticmethod
+    def from_dict(d: Mapping) -> "Reccuring":
+        cls_name, raw_next_date = d["cls_name"], d["next_date"]
+
+        next_date = datetime.strptime(raw_next_date, "%Y-%m-%d").date()
+
+        class_mapping = {cls.name : cls for cls in leaf_subclasses(Reccuring)}
+        cls = class_mapping[cls_name]
+
+        return cls(next_date=next_date)
 
     @classmethod
     @property
@@ -142,6 +156,7 @@ class Reccuring:
             if subclass not in cls._templates:
                 yield subclass
 
+    # TODO: this doesn't belong on the reccuring
     def run_task(self, tw: TaskWarrior, task: Task) -> None:
         task.backend = tw
 
@@ -233,28 +248,29 @@ class CronDB(dict):
 
 
 def restore_reccurings(crondb: CronDB) -> Sequence[Reccuring]:
+    # TODO: expose this on Recurring
+    # TODO: hide leaf_subclasses inside that definition
     classMapping = {cls.name : cls for cls in leaf_subclasses(Reccuring)}
 
     for identifier in classMapping:
         if identifier not in crondb:
+            # TODO: make this a nicer interface
             crondb.write(identifier, parse_date(input(f"Next date for {identifier}? ")))
     assert all(i in crondb for i in classMapping), "for every existing class there is an entry in crondb"
-    # TODO: make this a validation
 
-    if additional := set(crondb).difference(set(classMapping)):
-        print(f"warrning: {crondb.db_file_name} has additional entries {additional} that do not have a matching Reccuring definition")
+    reconstructed = []
+    for i in crondb.items():
+        # TODO: change serialization format to be more modular wrg to Recurring serialization
+        d = { "cls_name": i[0], "next_date": i[1] }
+        try:
+            reconstructed.append(Reccuring.from_dict(d))
+        except KeyError:
+            print(f"warrning: {crondb.db_file_name} has additional entry {d['cls_name']} that do not have a matching Reccuring definition")
 
-    # TODO: this should be serialization
-    def _reconstruct(args) -> Optional[Reccuring]:
-        task_name, raw_next_date = args
-        next_date = datetime.strptime(raw_next_date, "%Y-%m-%d").date()
-        
-        with suppress(KeyError):
-            return classMapping[task_name](next_date)
-    reonstructed: Sequence[Reccuring] = (_reconstruct(i) for i in crondb.items() if _reconstruct(i))
     # !!! THIS IS WRONG, HOWVER IT's ALSO DONE !!!
     # TODO: implement actual dependency chain resolution, not just this
-    return  sorted(reonstructed, key=lambda t: t.run_after)
+    # TODO: maybe first just implement an assert check?
+    return  sorted(reconstructed, key=lambda t: t.run_after)
 
 def leaf_subclasses(cls):
     return filter(lambda c: not c.__subclasses__(), cls.get_subclasses())
